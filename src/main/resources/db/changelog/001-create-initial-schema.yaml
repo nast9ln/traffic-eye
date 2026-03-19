@@ -1,0 +1,188 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: system
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(255)
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+              - column:
+                  name: password
+                  type: VARCHAR(255)
+              - column:
+                  name: role
+                  type: VARCHAR(50)
+              - column:
+                  name: enabled
+                  type: BOOLEAN
+              - column:
+                  name: google_id
+                  type: VARCHAR(255)
+              - column:
+                  name: calendar_token
+                  type: VARCHAR(255)
+              - column:
+                  name: calendar_id
+                  type: VARCHAR(255)
+              - column:
+                  name: refresh_token
+                  type: TEXT
+              - column:
+                  name: registration_date
+                  type: TIMESTAMP
+              - column:
+                  name: approved_date
+                  type: TIMESTAMP
+
+  - changeSet:
+      id: 2
+      author: system
+      changes:
+        - createTable:
+            tableName: zone
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+              - column:
+                  name: description
+                  type: VARCHAR(500)
+              - column:
+                  name: polygon
+                  type: TEXT
+              - column:
+                  name: center
+                  type: TEXT
+              - column:
+                  name: color
+                  type: VARCHAR(50)
+              - column:
+                  name: area
+                  type: DOUBLE
+              - column:
+                  name: boundaries
+                  type: TEXT
+
+  - changeSet:
+      id: 3
+      author: system
+      changes:
+        - createTable:
+            tableName: duty
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: date
+                  type: DATE
+              - column:
+                  name: start_time
+                  type: TIME
+              - column:
+                  name: end_time
+                  type: TIME
+              - column:
+                  name: employee_id
+                  type: BIGINT
+              - column:
+                  name: zone_id
+                  type: BIGINT
+              - column:
+                  name: result_link
+                  type: VARCHAR(500)
+              - column:
+                  name: google_event_id
+                  type: VARCHAR(255)
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+
+  - changeSet:
+      id: 4
+      author: system
+      changes:
+        - createTable:
+            tableName: duty_result
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: duty_id
+                  type: BIGINT
+              - column:
+                  name: spreadsheet_id
+                  type: VARCHAR(255)
+              - column:
+                  name: sheet_name
+                  type: VARCHAR(255)
+              - column:
+                  name: row_number
+                  type: INT
+              - column:
+                  name: data
+                  type: TEXT
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMP
+              - column:
+                  name: imported_at
+                  type: TIMESTAMP
+
+  - changeSet:
+      id: 5
+      author: system
+      changes:
+        - addForeignKeyConstraint:
+            baseTableName: duty
+            baseColumnNames: employee_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_duty_employee
+        - addForeignKeyConstraint:
+            baseTableName: duty
+            baseColumnNames: zone_id
+            referencedTableName: zone
+            referencedColumnNames: id
+            constraintName: fk_duty_zone
+        - addForeignKeyConstraint:
+            baseTableName: duty_result
+            baseColumnNames: duty_id
+            referencedTableName: duty
+            referencedColumnNames: id
+            constraintName: fk_duty_result

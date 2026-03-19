@@ -1,0 +1,171 @@
+### Переменные
+@baseUrl = http://localhost:8080
+@managerToken = kakashka
+@employeeToken = kakashka
+
+### ========== Аутентификация и регистрация ==========
+
+### 1. Регистрация нового пользователя (без роли)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "ivanov",
+  "email": "ivanov@example.com",
+  "password": "password123",
+  "googleId": "user-google-id-123",
+  "calendarId": "primary"
+}
+
+### 2. Вход через Google OAuth2 (откроется браузер)
+GET {{baseUrl}}/oauth2/authorization/google
+
+### 3. Успешная аутентификация OAuth2
+GET {{baseUrl}}/auth/oauth2/success
+
+### ========== Менеджер: управление пользователями ==========
+
+### 4. Получить список неподтвержденных пользователей (только менеджер)
+GET {{baseUrl}}/manager/pending-users
+Authorization: Bearer {{managerToken}}
+
+### 5. Подтвердить регистрацию пользователя (только менеджер)
+POST {{baseUrl}}/manager/approve/1
+Authorization: Bearer {{managerToken}}
+
+### ========== Менеджер: управление зонами ==========
+
+### 6. Создание новой зоны с полигоном (только менеджер)
+POST {{baseUrl}}/manager/zones
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{
+  "name": "Склад №1",
+  "description": "Основной склад готовой продукции",
+  "polygon": "{\"type\":\"Polygon\",\"coordinates\":[[[37.6173,55.7558],[37.6273,55.7658],[37.6373,55.7558],[37.6173,55.7558]]]}",
+  "center": "{\"type\":\"Point\",\"coordinates\":[37.6273,55.7608]}",
+  "color": "#FF0000"
+}
+
+### 7. Обновление зоны (только менеджер)
+PUT {{baseUrl}}/manager/zones/1
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{
+  "name": "Склад №1 (обновленный)",
+  "description": "Основной склад готовой продукции с расширением",
+  "polygon": "{\"type\":\"Polygon\",\"coordinates\":[[[37.6173,55.7558],[37.6300,55.7700],[37.6400,55.7558],[37.6173,55.7558]]]}",
+  "center": "{\"type\":\"Point\",\"coordinates\":[37.6300,55.7620]}",
+  "color": "#00FF00"
+}
+
+### ========== Менеджер: управление дежурствами ==========
+
+### 8. Создание дежурства для сотрудника (только менеджер)
+POST {{baseUrl}}/manager/duty
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{
+  "date": "2026-03-20",
+  "start": "09:00:00",
+  "end": "18:00:00",
+  "employeeId": 2,
+  "zoneId": 1
+}
+
+### 9. Получить список дежурств за период (только менеджер)
+GET {{baseUrl}}/manager/duties?from=2026-03-01&to=2026-03-31
+Authorization: Bearer {{managerToken}}
+
+### ========== Менеджер: отчеты ==========
+
+### 10. Сгенерировать отчет за период (только менеджер)
+GET {{baseUrl}}/manager/report?from=2026-03-01&to=2026-03-31
+Authorization: Bearer {{managerToken}}
+
+### ========== Сотрудник: управление дежурствами ==========
+
+### 11. Получить свои дежурства (только сотрудник)
+GET {{baseUrl}}/employee/my-duties
+Authorization: Bearer {{employeeToken}}
+
+### 12. Отправить результат дежурства через Google Sheets (только сотрудник)
+POST {{baseUrl}}/employee/submit-result/1?spreadsheetId=1abc123def456&range=Sheet1!A1:D10
+Authorization: Bearer {{employeeToken}}
+
+### ========== Тестирование с разными ролями ==========
+
+### 13. Попытка доступа менеджера к employee endpoint (должна быть ошибка 403)
+GET {{baseUrl}}/employee/my-duties
+Authorization: Bearer {{managerToken}}
+
+### 14. Попытка доступа сотрудника к manager endpoint (должна быть ошибка 403)
+GET {{baseUrl}}/manager/pending-users
+Authorization: Bearer {{employeeToken}}
+
+### ========== Полный сценарий работы ==========
+
+### Сценарий 1: Регистрация и подтверждение пользователя
+
+### 15. Регистрация нового сотрудника
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "petrov",
+  "email": "petrov@example.com",
+  "password": "secure123",
+  "googleId": "petrov-google-id",
+  "calendarId": "primary"
+}
+
+### 16. Менеджер получает список неподтвержденных
+GET {{baseUrl}}/manager/pending-users
+Authorization: Bearer {{managerToken}}
+
+### 17. Менеджер подтверждает сотрудника (id=3 из предыдущего запроса)
+POST {{baseUrl}}/manager/approve/3
+Authorization: Bearer {{managerToken}}
+
+### Сценарий 2: Создание дежурства и получение результатов
+
+### 18. Менеджер создает зону
+POST {{baseUrl}}/manager/zones
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{
+  "name": "Цех сборки",
+  "description": "Сборочный цех №2",
+  "polygon": "{\"type\":\"Polygon\",\"coordinates\":[[[37.6000,55.7500],[37.6100,55.7600],[37.6200,55.7500],[37.6000,55.7500]]]}",
+  "center": "{\"type\":\"Point\",\"coordinates\":[37.6100,55.7550]}",
+  "color": "#0000FF"
+}
+
+### 19. Менеджер назначает дежурство
+POST {{baseUrl}}/manager/duty
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{
+  "date": "2026-03-21",
+  "start": "10:00:00",
+  "end": "19:00:00",
+  "employeeId": 3,
+  "zoneId": 2
+}
+
+### 20. Сотрудник получает свои дежурства
+GET {{baseUrl}}/employee/my-duties
+Authorization: Bearer {{employeeToken}}
+
+### 21. Сотрудник отправляет результаты
+POST {{baseUrl}}/employee/submit-result/2?spreadsheetId=abc123def456&range=Sheet1!A1:E20
+Authorization: Bearer {{employeeToken}}
+
+### 22. Менеджер формирует отчет за период
+GET {{baseUrl}}/manager/report?from=2026-03-01&to=2026-03-31
+Authorization: Bearer {{managerToken}}
