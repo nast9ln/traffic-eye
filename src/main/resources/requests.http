@@ -169,3 +169,444 @@ Authorization: Bearer {{employeeToken}}
 ### 22. Менеджер формирует отчет за период
 GET {{baseUrl}}/manager/report?from=2026-03-01&to=2026-03-31
 Authorization: Bearer {{managerToken}}
+
+
+
+
+### ============================================
+### ТЕСТИРОВАНИЕ ПРОЕКТА "CrossFlow" - УЧЁТ ТРАФИКА
+### ============================================
+
+
+### ========== 1. АУТЕНТИФИКАЦИЯ И РЕГИСТРАЦИЯ ==========
+
+### 1.1 Регистрация нового сотрудника
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "ivanov",
+  "email": "ivanov@example.com",
+  "password": "password123",
+  "googleId": "",
+  "calendarId": "primary"
+}
+
+### 1.2 Регистрация ещё одного сотрудника
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "petrov",
+  "email": "petrov@example.com",
+  "password": "password123",
+  "googleId": "",
+  "calendarId": "primary"
+}
+
+### 1.3 Вход через форму (для получения сессии)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+username=manager&password=12345
+
+### ========== 2. УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ (МЕНЕДЖЕР) ==========
+
+### 2.1 Получить список неподтверждённых пользователей
+GET {{baseUrl}}/manager/pending-users
+
+### 2.2 Подтвердить пользователя Ivanov (ID обычно 1)
+POST {{baseUrl}}/manager/approve/1
+
+### 2.3 Подтвердить пользователя Petrov (ID обычно 2)
+POST {{baseUrl}}/manager/approve/2
+
+### ========== 3. УПРАВЛЕНИЕ ПЕРЕКРЁСТКАМИ ==========
+
+### 3.1 Создать новый перекрёсток
+POST {{baseUrl}}/manager/zones
+Content-Type: application/json
+
+{
+  "name": "Перекрёсток Ленина-Пушкина",
+  "description": "Центральный перекрёсток города",
+  "polygon": "{\"type\":\"Polygon\",\"coordinates\":[[[37.6173,55.7558],[37.6273,55.7658],[37.6373,55.7558],[37.6173,55.7558]]]}",
+  "center": "{\"type\":\"Point\",\"coordinates\":[37.6273,55.7608]}",
+  "color": "#FF0000"
+}
+
+### 3.2 Создать ещё один перекрёсток
+POST {{baseUrl}}/manager/zones
+Content-Type: application/json
+
+{
+  "name": "Перекрёсток Гагарина-Советская",
+  "description": "Перекрёсток в спальном районе",
+  "polygon": "{\"type\":\"Polygon\",\"coordinates\":[[[37.6000,55.7500],[37.6100,55.7600],[37.6200,55.7500],[37.6000,55.7500]]]}",
+  "center": "{\"type\":\"Point\",\"coordinates\":[37.6100,55.7550]}",
+  "color": "#0000FF"
+}
+
+### 3.3 Получить список всех перекрёстков (нужно добавить эндпоинт)
+GET {{baseUrl}}/manager/zones
+
+### ========== 4. УПРАВЛЕНИЕ НАПРАВЛЕНИЯМИ ДВИЖЕНИЯ ==========
+
+### 4.1 Создать направление для перекрёстка №1
+POST {{baseUrl}}/manager/directions
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "code": "С1",
+  "name": "Север, 1-я полоса",
+  "orderIndex": 1
+}
+
+### 4.2 Создать направление С2
+POST {{baseUrl}}/manager/directions
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "code": "С2",
+  "name": "Север, 2-я полоса",
+  "orderIndex": 2
+}
+
+### 4.3 Создать направление Ю1
+POST {{baseUrl}}/manager/directions
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "code": "Ю1",
+  "name": "Юг, 1-я полоса",
+  "orderIndex": 3
+}
+
+### 4.4 Создать направление Ю2
+POST {{baseUrl}}/manager/directions
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "code": "Ю2",
+  "name": "Юг, 2-я полоса",
+  "orderIndex": 4
+}
+
+### 4.5 Создать направление З (Запад)
+POST {{baseUrl}}/manager/directions
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "code": "З",
+  "name": "Запад",
+  "orderIndex": 5
+}
+
+### 4.6 Создать направление В (Восток)
+POST {{baseUrl}}/manager/directions
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "code": "В",
+  "name": "Восток",
+  "orderIndex": 6
+}
+
+### 4.7 Получить список направлений для перекрёстка №1
+GET {{baseUrl}}/employee/traffic/directions/1
+
+### ========== 5. НАЗНАЧЕНИЕ ДЕЖУРСТВ ==========
+
+### 5.1 Назначить дежурство Иванову на перекрёстке №1
+POST {{baseUrl}}/manager/duty
+Content-Type: application/json
+
+{
+  "date": "2026-03-20",
+  "start": "09:00:00",
+  "end": "18:00:00",
+  "employeeId": 1,
+  "zoneId": 1
+}
+
+### 5.2 Назначить дежурство Петрову на перекрёстке №2
+POST {{baseUrl}}/manager/duty
+Content-Type: application/json
+
+{
+  "date": "2026-03-20",
+  "start": "10:00:00",
+  "end": "19:00:00",
+  "employeeId": 2,
+  "zoneId": 2
+}
+
+### 5.3 Получить список дежурств за период
+GET {{baseUrl}}/manager/duties?from=2026-03-01&to=2026-03-31
+
+### ========== 6. ВВОД ДАННЫХ О ТРАФИКЕ (СОТРУДНИК) ==========
+
+### 6.1 Запись данных за 06:00-09:00 (утренний пик)
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 1,
+  "date": "2026-03-20",
+  "startTime": "06:15:00",
+  "waitingCarsCount": 15
+}
+
+### 6.2 Запись данных за 06:00-09:00 (другое направление)
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 3,
+  "date": "2026-03-20",
+  "startTime": "06:20:00",
+  "waitingCarsCount": 12
+}
+
+### 6.3 Запись данных за 09:00-12:00
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 2,
+  "date": "2026-03-20",
+  "startTime": "09:30:00",
+  "waitingCarsCount": 8
+}
+
+### 6.4 Запись данных за 12:00-15:00
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 1,
+  "date": "2026-03-20",
+  "startTime": "13:15:00",
+  "waitingCarsCount": 10
+}
+
+### 6.5 Запись данных за 15:00-18:00 (вечерний пик)
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 4,
+  "date": "2026-03-20",
+  "startTime": "17:45:00",
+  "waitingCarsCount": 22
+}
+
+### 6.6 Запись данных за 18:00-21:00
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 5,
+  "date": "2026-03-20",
+  "startTime": "19:30:00",
+  "waitingCarsCount": 5
+}
+
+### ========== 7. БОЛЬШОЙ ОБЪЁМ ДАННЫХ ДЛЯ ТЕСТИРОВАНИЯ ==========
+
+### 7.1 Запись данных за 06:00-09:00 (разные дни)
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 1,
+  "date": "2026-03-21",
+  "startTime": "07:00:00",
+  "waitingCarsCount": 18
+}
+
+### 7.2 Запись данных за 06:00-09:00
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 3,
+  "date": "2026-03-21",
+  "startTime": "07:15:00",
+  "waitingCarsCount": 14
+}
+
+### 7.3 Запись данных за 09:00-12:00
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 2,
+  "date": "2026-03-21",
+  "startTime": "10:30:00",
+  "waitingCarsCount": 7
+}
+
+### 7.4 Запись данных за 12:00-15:00
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 1,
+  "date": "2026-03-21",
+  "startTime": "14:00:00",
+  "waitingCarsCount": 9
+}
+
+### 7.5 Запись данных за 15:00-18:00
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 4,
+  "date": "2026-03-21",
+  "startTime": "16:30:00",
+  "waitingCarsCount": 25
+}
+
+### 7.6 Запись данных за 18:00-21:00
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 6,
+  "date": "2026-03-21",
+  "startTime": "20:15:00",
+  "waitingCarsCount": 8
+}
+
+### ========== 8. ГЕНЕРАЦИЯ ОТЧЁТОВ ==========
+
+### 8.1 Получить отчёт по трафику за период (JSON)
+GET {{baseUrl}}/manager/reports/traffic?intersectionId=1&startDate=2026-03-20&endDate=2026-03-21
+
+### 8.2 Экспортировать отчёт в Google Docs
+POST {{baseUrl}}/manager/reports/traffic/export
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "startDate": "2026-03-20",
+  "endDate": "2026-03-21"
+}
+
+### 8.3 Сгенерировать общий отчёт по дежурствам
+GET {{baseUrl}}/manager/report?from=2026-03-01&to=2026-03-31
+
+### ========== 9. ТЕСТИРОВАНИЕ ГРАНИЧНЫХ СЛУЧАЕВ ==========
+
+### 9.1 Запись данных с отрицательным значением (должна быть ошибка)
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 1,
+  "directionId": 1,
+  "date": "2026-03-22",
+  "startTime": "08:00:00",
+  "waitingCarsCount": -5
+}
+
+### 9.2 Запрос отчёта за период без данных
+GET {{baseUrl}}/manager/reports/traffic?intersectionId=1&startDate=2025-01-01&endDate=2025-01-02
+
+### 9.3 Запрос с несуществующим ID перекрёстка
+GET {{baseUrl}}/manager/reports/traffic?intersectionId=999&startDate=2026-03-20&endDate=2026-03-21
+
+### ========== 10. ПОЛНЫЙ СЦЕНАРИЙ РАБОТЫ ==========
+
+### Шаг 10.1: Менеджер создаёт перекрёсток
+POST {{baseUrl}}/manager/zones
+Content-Type: application/json
+
+{
+  "name": "Тестовый перекрёсток",
+  "description": "Для тестирования",
+  "polygon": "{\"type\":\"Polygon\",\"coordinates\":[[[37.6100,55.7500],[37.6200,55.7600],[37.6300,55.7500],[37.6100,55.7500]]]}",
+  "center": "{\"type\":\"Point\",\"coordinates\":[37.6200,55.7550]}",
+  "color": "#00FF00"
+}
+
+### Шаг 10.2: Менеджер добавляет направления
+POST {{baseUrl}}/manager/directions
+Content-Type: application/json
+
+{
+  "intersectionId": 3,
+  "code": "ТЕСТ1",
+  "name": "Тестовое направление 1",
+  "orderIndex": 1
+}
+
+### Шаг 10.3: Менеджер назначает дежурство
+POST {{baseUrl}}/manager/duty
+Content-Type: application/json
+
+{
+  "date": "2026-03-22",
+  "start": "08:00:00",
+  "end": "20:00:00",
+  "employeeId": 1,
+  "zoneId": 3
+}
+
+### Шаг 10.4: Сотрудник вводит данные
+POST {{baseUrl}}/employee/traffic/record
+Content-Type: application/json
+
+{
+  "intersectionId": 3,
+  "directionId": 7,
+  "date": "2026-03-22",
+  "startTime": "08:30:00",
+  "waitingCarsCount": 12
+}
+
+### Шаг 10.5: Менеджер получает отчёт
+GET {{baseUrl}}/manager/reports/traffic?intersectionId=3&startDate=2026-03-22&endDate=2026-03-22
+
+### Шаг 10.6: Менеджер экспортирует отчёт в Google Docs
+POST {{baseUrl}}/manager/reports/traffic/export
+Content-Type: application/json
+
+{
+  "intersectionId": 3,
+  "startDate": "2026-03-22",
+  "endDate": "2026-03-22"
+}
+
+### ========== 11. ПРОВЕРКА БЕЗОПАСНОСТИ ==========
+
+### 11.1 Доступ к manager endpoint без аутентификации (должен быть 302/401)
+GET {{baseUrl}}/manager/pending-users
+
+### 11.2 Доступ сотрудника к manager endpoint (нужно заменить токен)
+GET {{baseUrl}}/manager/pending-users
+Authorization: Bearer employee_token_here
+
+### 11.3 Доступ менеджера к employee endpoint (нужно заменить токен)
+GET {{baseUrl}}/employee/my-duties
+Authorization: Bearer manager_token_here

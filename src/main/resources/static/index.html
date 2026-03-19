@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrossFlow - Учёт трафика на перекрёстках</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+
+    <!-- Leaflet для карт -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet Draw для рисования полигонов -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --success-color: #4cc9f0;
+            --danger-color: #f72585;
+            --warning-color: #f8961e;
+            --dark-color: #212529;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .navbar-brand {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white !important;
+        }
+
+        .user-info {
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
+            height: calc(100vh - 100px);
+            position: sticky;
+            top: 20px;
+            overflow-y: auto;
+        }
+
+        .nav-pills .nav-link {
+            color: var(--dark-color);
+            border-radius: 10px;
+            margin: 5px 0;
+            padding: 12px 15px;
+            transition: all 0.3s;
+        }
+
+        .nav-pills .nav-link:hover {
+            background: rgba(67, 97, 238, 0.1);
+        }
+
+        .nav-pills .nav-link.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+
+        .nav-pills .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+        }
+
+        .content-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .card-header-custom {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px 10px 0 0;
+            margin: -25px -25px 20px -25px;
+        }
+
+        .btn-custom {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        .btn-outline-custom {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            background: transparent;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-outline-custom:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stats-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+
+        .table-custom {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table-custom thead {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+
+        .badge-manager {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        .badge-employee {
+            background: linear-gradient(135deg, #4cc9f0, #4895ef);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        .badge-new {
+            background: linear-gradient(135deg, #f8961e, #f3722c);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        /* Стили для карты */
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .map-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .map-instructions {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .intersection-marker {
+            background: var(--primary-color);
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .zone-polygon {
+            fill: var(--primary-color);
+            fill-opacity: 0.2;
+            stroke: var(--primary-color);
+            stroke-width: 3;
+        }
+
+        .modal-content-custom {
+            border-radius: 15px;
+            border: none;
+        }
+
+        .modal-header-custom {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .form-control-custom, .form-select-custom {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px 15px;
+            transition: all 0.3s;
+        }
+
+        .form-control-custom:focus, .form-select-custom:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .spinner-custom {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert-custom {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            min-width: 300px;
+            animation: slideIn 0.5s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .report-table {
+            font-size: 0.9rem;
+        }
+
+        .report-table th {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .direction-badge {
+            background: linear-gradient(135deg, #6c5ce7, #a363d9);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        .max-value {
+            background-color: rgba(76, 201, 240, 0.2);
+            font-weight: bold;
+            color: #3f37c9;
+        }
+
+        .coordinates-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .coordinate-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .coordinate-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading">
+    <div class="spinner-custom"></div>
+</div>
+
+<!-- Навигация -->
+<nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="#">
+            <i class="bi bi-signpost-split"></i> CrossFlow
+        </a>
+        <div class="user-info">
+            <img src="" alt="Avatar" class="user-avatar" id="userAvatar" style="display: none;">
+            <span id="userDisplayName">Загрузка...</span>
+            <button class="btn btn-outline-light btn-sm" onclick="logout()">
+                <i class="bi bi-box-arrow-right"></i> Выйти
+            </button>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Боковое меню -->
+        <div class="col-md-2">
+            <div class="sidebar">
+                <div class="nav nav-pills flex-column" id="nav-tab" role="tablist">
+                    <button class="nav-link active" id="nav-dashboard-tab" data-bs-toggle="pill" data-bs-target="#nav-dashboard" type="button" role="tab">
+                        <i class="bi bi-speedometer2"></i> Дашборд
+                    </button>
+                    <button class="nav-link" id="nav-intersections-tab" data-bs-toggle="pill" data-bs-target="#nav-intersections" type="button" role="tab">
+                        <i class="bi bi-signpost-2"></i> Перекрёстки
+                    </button>
+                    <button class="nav-link" id="nav-directions-tab" data-bs-toggle="pill" data-bs-target="#nav-directions" type="button" role="tab">
+                        <i class="bi bi-arrow-left-right"></i> Направления
+                    </button>
+                    <button class="nav-link" id="nav-duties-tab" data-bs-toggle="pill" data-bs-target="#nav-duties" type="button" role="tab">
+                        <i class="bi bi-calendar-check"></i> Дежурства
+                    </button>
+                    <button class="nav-link" id="nav-traffic-tab" data-bs-toggle="pill" data-bs-target="#nav-traffic" type="button" role="tab">
+                        <i class="bi bi-graph-up"></i> Данные трафика
+                    </button>
+                    <button class="nav-link" id="nav-reports-tab" data-bs-toggle="pill" data-bs-target="#nav-reports" type="button" role="tab">
+                        <i class="bi bi-file-text"></i> Отчёты
+                    </button>
+                    <button class="nav-link manager-only" id="nav-users-tab" data-bs-toggle="pill" data-bs-target="#nav-users" type="button" role="tab" style="display: none;">
+                        <i class="bi bi-people"></i> Пользователи
+                    </button>
+                </div>
+
+                <!-- Информация о пользователе в сайдбаре -->
+                <div class="mt-4 p-3 bg-light rounded">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-person-circle fs-4 me-2"></i>
+                        <div>
+                            <div id="sidebarUserName">Загрузка...</div>
+                            <small class="text-muted" id="sidebarUserRole"></small>
+                        </div>
+                    </div>
+                    <div class="badge" id="userRoleBadge"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Основной контент -->
+        <div class="col-md-10">
+            <div class="tab-content" id="nav-tabContent">
+                <!-- Дашборд -->
+                <div class="tab-pane fade show active" id="nav-dashboard" role="tabpanel">
+                    <div class="content-card">
+                        <div class="card-header-custom">
+                            <h5 class="mb-0"><i class="bi bi-speedometer2"></i> Панель управления</h5>
+                        </div>
+
+                        <!-- Статистика -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="stats-card">
+                                    <div class="stats-number" id="dashboardTotalIntersections">0</div>
+                                    <div>Перекрёстков</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card" style="background: linear-gradient(135deg, #f72585, #b5179e);">
+                                    <div class="stats-number" id="dashboardTotalDirections">0</div>
+                                    <div>Направлений</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card" style="background: linear-gradient(135deg, #4cc9f0, #4895ef);">
+                                    <div class="stats-number" id="dashboardTotalDuties">0</div>
+                                    <div>Дежурств сегодня</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-card" style="background: linear-gradient(135deg, #f8961e, #f3722c);">
+                                    <div class="stats-number" id="dashboardTotalRecords">0</div>
+                                    <div>Записей трафика</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Активные дежурства -->
+                        <h6 class="mb-3"><i class="bi bi-calendar-check"></i> Активные дежурства</h6>
+                        <div class="table-responsive">
+                            <table class="table table-custom">
+                                <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Время</th>
+                                    <th>Сотрудник</th>
+                                    <th>Перекрёсток</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                                </thead>
+                                <tbody id="dashboardActiveDuties">
+                                <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Перекрёстки -->
+                <div class="tab-pane fade" id="nav-intersections" role="tabpanel">
+                    <div class="content-card">
+                        <div class="card-header-custom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-signpost-2"></i> Управление перекрёстками</h5>
+                            <button class="btn btn-light btn-sm manager-only" onclick="showAddIntersectionModal()">
+                                <i class="bi bi-plus-lg"></i> Добавить
+                            </button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-custom">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Название</th>
+                                    <th>Адрес</th>
+                                    <th>Направлений</th>
+                                    <th>На карте</th>
+                                    <th>Действия</th>
+                                </tr>
+                                </thead>
+                                <tbody id="intersectionsTableBody">
+                                <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Направления -->
+                <div class="tab-pane fade" id="nav-directions" role="tabpanel">
+                    <div class="content-card">
+                        <div class="card-header-custom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Направления движения</h5>
+                            <div>
+                                <select class="form-select form-select-sm d-inline-block w-auto me-2" id="directionIntersectionFilter">
+                                    <option value="">Все перекрёстки</option>
+                                </select>
+                                <button class="btn btn-light btn-sm manager-only" onclick="showAddDirectionModal()">
+                                    <i class="bi bi-plus-lg"></i> Добавить
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-custom">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Перекрёсток</th>
+                                    <th>Код</th>
+                                    <th>Название</th>
+                                    <th>Порядок</th>
+                                    <th>Действия</th>
+                                </tr>
+                                </thead>
+                                <tbody id="directionsTableBody">
+                                <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Дежурства -->
+                <div class="tab-pane fade" id="nav-duties" role="tabpanel">
+                    <div class="content-card">
+                        <div class="card-header-custom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-calendar-check"></i> Дежурства</h5>
+                            <div>
+                                <input type="date" class="form-control form-control-sm d-inline-block w-auto me-2" id="dutyDateFilter" onchange="loadDuties()">
+                                <button class="btn btn-light btn-sm manager-only" onclick="showAddDutyModal()">
+                                    <i class="bi bi-plus-lg"></i> Назначить
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-custom">
+                                <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Время</th>
+                                    <th>Сотрудник</th>
+                                    <th>Перекрёсток</th>
+                                    <th>Статус</th>
+                                    <th>Результат</th>
+                                    <th>Действия</th>
+                                </tr>
+                                </thead>
+                                <tbody id="dutiesTableBody">
+                                <tr><td colspan="7" class="text-center">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Данные трафика -->
+                <div class="tab-pane fade" id="nav-traffic" role="tabpanel">
+                    <div class="content-card">
+                        <div class="card-header-custom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-graph-up"></i> Данные о трафике</h5>
+                            <button class="btn btn-light btn-sm" onclick="showAddTrafficDataModal()">
+                                <i class="bi bi-plus-lg"></i> Добавить запись
+                            </button>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <select class="form-select" id="trafficIntersectionFilter" onchange="loadTrafficData()">
+                                    <option value="">Все перекрёстки</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="date" class="form-control" id="trafficDateFilter" onchange="loadTrafficData()">
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-custom">
+                                <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Время</th>
+                                    <th>Перекрёсток</th>
+                                    <th>Направление</th>
+                                    <th>Кол-во машин</th>
+                                </tr>
+                                </thead>
+                                <tbody id="trafficTableBody">
+                                <tr><td colspan="5" class="text-center">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Отчёты -->
+                <div class="tab-pane fade" id="nav-reports" role="tabpanel">
+                    <div class="content-card">
+                        <div class="card-header-custom">
+                            <h5 class="mb-0"><i class="bi bi-file-text"></i> Генерация отчётов</h5>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <select class="form-select" id="reportIntersection">
+                                    <option value="">Выберите перекрёсток</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="date" class="form-control" id="reportStartDate">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="date" class="form-control" id="reportEndDate">
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-custom w-100" onclick="generateReport()">
+                                    <i class="bi bi-search"></i> Показать
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-custom w-100" onclick="exportToGoogleDocs()">
+                                    <i class="bi bi-file-earmark-word"></i> Экспорт
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="reportResult"></div>
+                    </div>
+                </div>
+
+                <!-- Пользователи (только для менеджера) -->
+                <div class="tab-pane fade" id="nav-users" role="tabpanel">
+                    <div class="content-card">
+                        <div class="card-header-custom d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-people"></i> Управление пользователями</h5>
+                            <span class="badge bg-warning" id="pendingUsersCount">0</span>
+                        </div>
+
+                        <ul class="nav nav-pills mb-3" id="userTabs" role="tablist">
+                            <li class="nav-item">
+                                <button class="nav-link active" id="pending-tab" data-bs-toggle="pill" data-bs-target="#pending" type="button">Ожидают</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" id="employees-tab" data-bs-toggle="pill" data-bs-target="#employees" type="button">Сотрудники</button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="pending">
+                                <table class="table table-custom">
+                                    <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Имя</th>
+                                        <th>Email</th>
+                                        <th>Дата</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="pendingUsersBody">
+                                    <tr><td colspan="5" class="text-center">Загрузка...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="tab-pane fade" id="employees">
+                                <table class="table table-custom">
+                                    <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Имя</th>
+                                        <th>Email</th>
+                                        <th>Роль</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="employeesBody">
+                                    <tr><td colspan="4" class="text-center">Загрузка...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальные окна -->
+
+<!-- Добавление/редактирование перекрёстка с картой -->
+<div class="modal fade" id="addIntersectionModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title" id="intersectionModalTitle">Добавить перекрёсток</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="clearMap()"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editIntersectionId">
+
+                <div class="map-container">
+                    <div id="intersectionMap" style="height: 400px; width: 100%; border-radius: 10px;"></div>
+                    <div class="map-controls">
+                        <div class="btn-group-vertical">
+                            <button class="btn btn-sm btn-outline-primary" onclick="drawPolygon()" title="Нарисовать полигон">
+                                <i class="bi bi-bounding-box"></i> Рисовать
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="addMarker()" title="Добавить маркер">
+                                <i class="bi bi-geo-alt"></i> Маркер
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="clearDrawings()" title="Очистить">
+                                <i class="bi bi-eraser"></i> Очистить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="map-instructions">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Инструкция:</strong> Нажмите "Рисовать" и на карте, чтобы создать полигон зоны.
+                    Нажмите "Маркер" для добавления маркера. Двойной клик завершает рисование.
+                </div>
+
+                <form id="addIntersectionForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Название *</label>
+                            <input type="text" class="form-control form-control-custom" id="intersectionName" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Адрес</label>
+                            <input type="text" class="form-control form-control-custom" id="intersectionAddress">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Описание</label>
+                        <textarea class="form-control form-control-custom" id="intersectionDescription" rows="2"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Цвет зоны</label>
+                        <input type="color" class="form-control form-control-custom" id="zoneColor" value="#4361ee">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Координаты полигона (JSON)</label>
+                            <textarea class="form-control form-control-custom" id="polygonCoordinates" rows="3" readonly placeholder="Нарисуйте полигон на карте"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Центр (JSON)</label>
+                            <textarea class="form-control form-control-custom" id="centerCoordinates" rows="3" readonly placeholder="Добавьте маркер на карте"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label>Список координат полигона:</label>
+                        <div class="coordinates-list" id="coordinatesList">
+                            <div class="text-muted text-center">Нарисуйте полигон на карте</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="clearMap()">Отмена</button>
+                <button type="button" class="btn btn-custom" onclick="saveIntersection()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Просмотр перекрёстка на карте -->
+<div class="modal fade" id="viewIntersectionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title" id="viewIntersectionTitle">Просмотр перекрёстка</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="clearViewMap()"></button>
+            </div>
+            <div class="modal-body">
+                <div id="viewMap" style="height: 500px; width: 100%; border-radius: 10px;"></div>
+
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 id="viewIntersectionName"></h6>
+                        <p id="viewIntersectionAddress" class="text-muted"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Информация:</h6>
+                        <p id="viewIntersectionInfo"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="clearViewMap()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Добавление направления -->
+<div class="modal fade" id="addDirectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title">Добавить направление</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDirectionForm">
+                    <div class="mb-3">
+                        <label class="form-label">Перекрёсток *</label>
+                        <select class="form-select form-select-custom" id="directionIntersection" required>
+                            <option value="">Выберите...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Код направления *</label>
+                        <input type="text" class="form-control form-control-custom" id="directionCode" placeholder="С1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Название *</label>
+                        <input type="text" class="form-control form-control-custom" id="directionName" placeholder="Север, 1-я полоса" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Порядок</label>
+                        <input type="number" class="form-control form-control-custom" id="directionOrder" value="1" min="1">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-custom" onclick="saveDirection()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Назначение дежурства -->
+<div class="modal fade" id="addDutyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title">Назначить дежурство</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDutyForm">
+                    <div class="mb-3">
+                        <label class="form-label">Сотрудник *</label>
+                        <select class="form-select form-select-custom" id="dutyEmployee" required>
+                            <option value="">Выберите...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Перекрёсток *</label>
+                        <select class="form-select form-select-custom" id="dutyIntersection" required>
+                            <option value="">Выберите...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Дата *</label>
+                        <input type="date" class="form-control form-control-custom" id="dutyDate" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Время начала *</label>
+                            <input type="time" class="form-control form-control-custom" id="dutyStart" value="09:00" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Время окончания *</label>
+                            <input type="time" class="form-control form-control-custom" id="dutyEnd" value="18:00" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-custom" onclick="saveDuty()">Назначить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Запись данных о трафике -->
+<div class="modal fade" id="addTrafficDataModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title">Записать данные о трафике</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addTrafficDataForm">
+                    <div class="mb-3">
+                        <label class="form-label">Перекрёсток *</label>
+                        <select class="form-select form-select-custom" id="trafficIntersection" onchange="loadDirectionsForTraffic()" required>
+                            <option value="">Выберите...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Направление *</label>
+                        <select class="form-select form-select-custom" id="trafficDirection" required>
+                            <option value="">Сначала выберите перекрёсток</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Дата *</label>
+                        <input type="date" class="form-control form-control-custom" id="trafficDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Время (5-мин интервал) *</label>
+                        <input type="time" class="form-control form-control-custom" id="trafficTime" step="300" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Количество машин *</label>
+                        <input type="number" class="form-control form-control-custom" id="trafficCount" min="0" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-custom" onclick="saveTrafficData()">Записать</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Отправка результата дежурства -->
+<div class="modal fade" id="submitResultModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header modal-header-custom">
+                <h5 class="modal-title">Отправить результат дежурства</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="submitResultForm">
+                    <input type="hidden" id="submitDutyId">
+                    <div class="mb-3">
+                        <label class="form-label">ID таблицы Google Sheets *</label>
+                        <input type="text" class="form-control form-control-custom" id="spreadsheetId" placeholder="1abc123def456..." required>
+                        <small class="text-muted">ID из URL таблицы (https://docs.google.com/spreadsheets/d/XXXXX/edit)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Диапазон *</label>
+                        <input type="text" class="form-control form-control-custom" id="sheetRange" value="Sheet1!A1:D10" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-custom" onclick="submitDutyResult()">Отправить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Глобальные переменные
+    let currentUser = null;
+    let intersections = [];
+    let directions = [];
+    let duties = [];
+    let employees = [];
+
+    // Переменные для карты
+    let map = null;
+    let drawnItems = null;
+    let drawControl = null;
+    let currentPolygon = null;
+    let currentMarker = null;
+    let viewMap = null;
+
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        checkAuthAndLoadData();
+        setDefaultDates();
+    });
+
+    // Установка дат по умолчанию
+    function setDefaultDates() {
+        const today = new Date().toISOString().split('T')[0];
+        const firstDay = new Date();
+        firstDay.setDate(1);
+
+        document.getElementById('dutyDateFilter').value = today;
+        document.getElementById('trafficDateFilter').value = today;
+        document.getElementById('reportStartDate').value = firstDay.toISOString().split('T')[0];
+        document.getElementById('reportEndDate').value = today;
+    }
+
+    // Проверка аутентификации и загрузка данных
+    async function checkAuthAndLoadData() {
+        showLoading();
+        try {
+            const response = await fetch('/api/user', {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!response.ok) throw new Error('Ошибка загрузки пользователя');
+
+            const userData = await response.json();
+            console.log('User data:', userData);
+
+            if (userData.authenticated) {
+                currentUser = {
+                    username: userData.name || userData.email,
+                    email: userData.email,
+                    role: userData.role,
+                    enabled: userData.enabled,
+                    picture: userData.picture
+                };
+
+                updateUserInfo();
+
+                if (currentUser.role === 'MANAGER') {
+                    document.querySelectorAll('.manager-only').forEach(el => el.style.display = 'block');
+                }
+
+                await loadAllData();
+            } else {
+                window.location.href = '/login.html';
+            }
+        } catch (error) {
+            console.error('Auth check failed:', error);
+            window.location.href = '/login.html';
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Обновление информации о пользователе
+    function updateUserInfo() {
+        document.getElementById('userDisplayName').textContent = currentUser.username;
+        document.getElementById('sidebarUserName').textContent = currentUser.username;
+
+        const roleBadge = document.getElementById('sidebarUserRole');
+        const userRoleBadge = document.getElementById('userRoleBadge');
+
+        if (currentUser.role === 'MANAGER') {
+            roleBadge.textContent = 'Менеджер';
+            userRoleBadge.className = 'badge-manager';
+            userRoleBadge.textContent = 'Менеджер';
+        } else if (currentUser.role === 'EMPLOYEE') {
+            roleBadge.textContent = 'Сотрудник';
+            userRoleBadge.className = 'badge-employee';
+            userRoleBadge.textContent = 'Сотрудник';
+        } else {
+            roleBadge.textContent = 'Новый';
+            userRoleBadge.className = 'badge-new';
+            userRoleBadge.textContent = 'Ожидает';
+        }
+
+        if (currentUser.picture) {
+            document.getElementById('userAvatar').src = currentUser.picture;
+            document.getElementById('userAvatar').style.display = 'inline';
+        }
+    }
+
+    // Загрузка всех данных
+    async function loadAllData() {
+        try {
+            await Promise.all([
+                loadIntersections(),
+                loadDirections(),
+                loadDuties(),
+                loadTrafficData(),
+                loadUsers()
+            ]);
+            updateDashboard();
+        } catch (error) {
+            showError('Ошибка загрузки данных: ' + error.message);
+        }
+    }
+
+    // Загрузка перекрёстков
+    async function loadIntersections() {
+        try {
+            const response = await fetch('/manager/zones', { credentials: 'include' });
+            if (!response.ok) throw new Error('Ошибка загрузки перекрёстков');
+            intersections = await response.json();
+
+            const tbody = document.getElementById('intersectionsTableBody');
+            if (intersections.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Нет данных</td></tr>';
+            } else {
+                tbody.innerHTML = intersections.map(i => `
+                        <tr>
+                            <td>${i.id}</td>
+                            <td>${i.name}</td>
+                            <td>${i.address || '-'}</td>
+                            <td>${i.directionsCount || 0}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info" onclick="viewIntersectionOnMap(${i.id})">
+                                    <i class="bi bi-geo-alt"></i>
+                                </button>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editIntersection(${i.id})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteIntersection(${i.id})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+            }
+
+            updateIntersectionSelects();
+        } catch (error) {
+            console.error('Error loading intersections:', error);
+        }
+    }
+
+    // Просмотр перекрёстка на карте
+    function viewIntersectionOnMap(id) {
+        const intersection = intersections.find(i => i.id === id);
+        if (!intersection) return;
+
+        document.getElementById('viewIntersectionTitle').textContent = intersection.name;
+        document.getElementById('viewIntersectionName').textContent = intersection.name;
+        document.getElementById('viewIntersectionAddress').textContent = intersection.address || 'Адрес не указан';
+
+        let info = `Направлений: ${intersection.directionsCount || 0}`;
+        if (intersection.polygon) info += '\nЕсть полигон';
+        if (intersection.center) info += '\nЕсть маркер';
+        document.getElementById('viewIntersectionInfo').textContent = info;
+
+        const modal = new bootstrap.Modal(document.getElementById('viewIntersectionModal'));
+        modal.show();
+
+        setTimeout(() => {
+            initViewMap(intersection);
+        }, 500);
+    }
+
+    // Инициализация карты для просмотра
+    function initViewMap(intersection) {
+        if (viewMap) {
+            viewMap.remove();
+        }
+
+        viewMap = L.map('viewMap').setView([55.7558, 37.6173], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(viewMap);
+
+        try {
+            if (intersection.polygon) {
+                const polygonCoords = JSON.parse(intersection.polygon);
+                if (polygonCoords.coordinates) {
+                    const coords = polygonCoords.coordinates[0].map(c => [c[1], c[0]]);
+                    L.polygon(coords, {
+                        color: intersection.color || '#4361ee',
+                        weight: 3,
+                        opacity: 0.8,
+                        fillOpacity: 0.2
+                    }).addTo(viewMap).bindPopup(intersection.name);
+
+                    viewMap.fitBounds(coords);
+                }
+            }
+
+            if (intersection.center) {
+                const center = JSON.parse(intersection.center);
+                if (center.coordinates) {
+                    const [lng, lat] = center.coordinates;
+                    L.marker([lat, lng]).addTo(viewMap)
+                        .bindPopup(`<b>${intersection.name}</b><br>${intersection.address || ''}`);
+                }
+            }
+        } catch (e) {
+            console.error('Error parsing coordinates:', e);
+        }
+    }
+
+    // Очистка карты просмотра
+    function clearViewMap() {
+        if (viewMap) {
+            viewMap.remove();
+            viewMap = null;
+        }
+    }
+
+    // Загрузка направлений
+    async function loadDirections() {
+        try {
+            const response = await fetch('/employee/traffic/directions/1', { credentials: 'include' });
+            if (response.ok) {
+                directions = await response.json();
+            }
+        } catch (error) {
+            console.error('Error loading directions:', error);
+        }
+    }
+
+    // Загрузка дежурств
+    async function loadDuties() {
+        try {
+            const date = document.getElementById('dutyDateFilter').value;
+            const response = await fetch(`/manager/duties?from=${date}&to=${date}`, { credentials: 'include' });
+            if (!response.ok) throw new Error('Ошибка загрузки дежурств');
+            duties = await response.json();
+
+            const tbody = document.getElementById('dutiesTableBody');
+            if (duties.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">Нет данных</td></tr>';
+            } else {
+                tbody.innerHTML = duties.map(d => `
+                        <tr>
+                            <td>${d.date}</td>
+                            <td>${d.startTime} - ${d.endTime}</td>
+                            <td>${d.employeeName}</td>
+                            <td>${d.zoneName}</td>
+                            <td>
+                                <span class="badge ${d.status === 'COMPLETED' ? 'bg-success' : 'bg-warning'}">
+                                    ${d.status}
+                                </span>
+                            </td>
+                            <td>
+                                ${d.resultLink ?
+                    `<a href="${d.resultLink}" target="_blank" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-link"></i>
+                                    </a>` :
+                    '<span class="text-muted">-</span>'
+                }
+                            </td>
+                            <td>
+                                ${d.status !== 'COMPLETED' && currentUser.role === 'EMPLOYEE' ?
+                    `<button class="btn btn-sm btn-outline-primary" onclick="showSubmitResultModal(${d.id})">
+                                        <i class="bi bi-send"></i>
+                                    </button>` : ''
+                }
+                                ${currentUser.role === 'MANAGER' ?
+                    `<button class="btn btn-sm btn-outline-success" onclick="completeDuty(${d.id})">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>` : ''
+                }
+                            </td>
+                        </tr>
+                    `).join('');
+            }
+
+            updateDashboardDuties();
+        } catch (error) {
+            console.error('Error loading duties:', error);
+        }
+    }
+
+    // Загрузка данных о трафике
+    async function loadTrafficData() {
+        try {
+            const tbody = document.getElementById('trafficTableBody');
+            tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            Функция загрузки данных о трафике будет доступна после реализации API
+                        </td>
+                    </tr>
+                `;
+        } catch (error) {
+            console.error('Error loading traffic data:', error);
+        }
+    }
+
+    // Загрузка пользователей
+    async function loadUsers() {
+        try {
+            const pendingResponse = await fetch('/manager/pending-users', { credentials: 'include' });
+            if (pendingResponse.ok) {
+                const pendingUsers = await pendingResponse.json();
+                document.getElementById('pendingUsersCount').textContent = pendingUsers.length;
+
+                const tbody = document.getElementById('pendingUsersBody');
+                if (pendingUsers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Нет ожидающих</td></tr>';
+                } else {
+                    tbody.innerHTML = pendingUsers.map(u => `
+                            <tr>
+                                <td>${u.id}</td>
+                                <td>${u.username}</td>
+                                <td>${u.email}</td>
+                                <td>${new Date(u.registrationDate).toLocaleDateString()}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-success" onclick="approveUser(${u.id})">
+                                        <i class="bi bi-check-circle"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
+    }
+
+    // Обновление дашборда
+    function updateDashboard() {
+        document.getElementById('dashboardTotalIntersections').textContent = intersections.length;
+        document.getElementById('dashboardTotalDirections').textContent = directions.length;
+        document.getElementById('dashboardTotalDuties').textContent = duties.length;
+        document.getElementById('dashboardTotalRecords').textContent = '0';
+    }
+
+    function updateDashboardDuties() {
+        const tbody = document.getElementById('dashboardActiveDuties');
+        const activeDuties = duties.filter(d => d.status !== 'COMPLETED').slice(0, 5);
+
+        if (activeDuties.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">Нет активных дежурств</td></tr>';
+        } else {
+            tbody.innerHTML = activeDuties.map(d => `
+                    <tr>
+                        <td>${d.date}</td>
+                        <td>${d.startTime} - ${d.endTime}</td>
+                        <td>${d.employeeName}</td>
+                        <td>${d.zoneName}</td>
+                        <td><span class="badge bg-warning">Активно</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewDutyDetails(${d.id})">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+        }
+    }
+
+    // Обновление селектов
+    function updateIntersectionSelects() {
+        const selects = [
+            'directionIntersection',
+            'dutyIntersection',
+            'trafficIntersection',
+            'reportIntersection',
+            'directionIntersectionFilter',
+            'trafficIntersectionFilter'
+        ];
+
+        const options = intersections.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+
+        selects.forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                const currentValue = select.value;
+                select.innerHTML = `<option value="">Выберите перекрёсток</option>${options}`;
+                if (currentValue) select.value = currentValue;
+            }
+        });
+    }
+
+    // Инициализация карты для добавления/редактирования
+    function initMapForEdit(existingData = null) {
+        if (map) {
+            map.remove();
+        }
+
+        map = L.map('intersectionMap').setView([55.7558, 37.6173], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Инициализация слоя для рисования
+        drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        // Настройка рисования
+        drawControl = new L.Control.Draw({
+            draw: {
+                polygon: {
+                    allowIntersection: false,
+                    showArea: true,
+                    shapeOptions: {
+                        color: document.getElementById('zoneColor').value || '#4361ee'
+                    }
+                },
+                marker: true,
+                circle: false,
+                rectangle: false,
+                circlemarker: false,
+                polyline: false
+            },
+            edit: {
+                featureGroup: drawnItems,
+                remove: true
+            }
+        });
+
+        map.addControl(drawControl);
+
+        // Обработка событий рисования
+        map.on(L.Draw.Event.CREATED, function(event) {
+            const layer = event.layer;
+            drawnItems.clearLayers();
+            drawnItems.addLayer(layer);
+
+            if (layer instanceof L.Polygon) {
+                currentPolygon = layer;
+                updatePolygonCoordinates(layer);
+            } else if (layer instanceof L.Marker) {
+                currentMarker = layer;
+                updateMarkerCoordinates(layer);
+            }
+        });
+
+        map.on(L.Draw.Event.EDITED, function(event) {
+            event.layers.eachLayer(function(layer) {
+                if (layer instanceof L.Polygon) {
+                    currentPolygon = layer;
+                    updatePolygonCoordinates(layer);
+                } else if (layer instanceof L.Marker) {
+                    currentMarker = layer;
+                    updateMarkerCoordinates(layer);
+                }
+            });
+        });
+
+        // Если есть данные для редактирования
+        if (existingData) {
+            loadExistingDataToMap(existingData);
+        }
+    }
+
+    // Обновление координат полигона
+    function updatePolygonCoordinates(layer) {
+        const latLngs = layer.getLatLngs()[0];
+        const coordinates = latLngs.map(ll => [ll.lng, ll.lat]);
+
+        // Для GeoJSON формат: [lng, lat]
+        const polygonGeoJson = {
+            type: "Polygon",
+            coordinates: [coordinates]
+        };
+
+        document.getElementById('polygonCoordinates').value = JSON.stringify(polygonGeoJson, null, 2);
+
+        // Обновление списка координат
+        const listHtml = coordinates.map((coord, index) => `
+                <div class="coordinate-item">
+                    <span>Точка ${index + 1}:</span>
+                    <span>${coord[1].toFixed(6)}, ${coord[0].toFixed(6)}</span>
+                </div>
+            `).join('');
+
+        document.getElementById('coordinatesList').innerHTML = listHtml;
+    }
+
+    // Обновление координат маркера
+    function updateMarkerCoordinates(layer) {
+        const latLng = layer.getLatLng();
+
+        const markerGeoJson = {
+            type: "Point",
+            coordinates: [latLng.lng, latLng.lat]
+        };
+
+        document.getElementById('centerCoordinates').value = JSON.stringify(markerGeoJson, null, 2);
+    }
+
+    // Загрузка существующих данных на карту
+    function loadExistingDataToMap(intersection) {
+        try {
+            if (intersection.polygon) {
+                const polygonData = JSON.parse(intersection.polygon);
+                if (polygonData.coordinates) {
+                    const coords = polygonData.coordinates[0].map(c => [c[1], c[0]]);
+                    const polygon = L.polygon(coords, {
+                        color: intersection.color || '#4361ee'
+                    });
+                    drawnItems.addLayer(polygon);
+                    currentPolygon = polygon;
+                    map.fitBounds(coords);
+                    updatePolygonCoordinates(polygon);
+                }
+            }
+
+            if (intersection.center) {
+                const centerData = JSON.parse(intersection.center);
+                if (centerData.coordinates) {
+                    const [lng, lat] = centerData.coordinates;
+                    const marker = L.marker([lat, lng]).addTo(drawnItems);
+                    currentMarker = marker;
+                    updateMarkerCoordinates(marker);
+                }
+            }
+        } catch (e) {
+            console.error('Error loading existing data:', e);
+        }
+    }
+
+    // Функции для управления рисованием
+    function drawPolygon() {
+        if (map) {
+            new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+        }
+    }
+
+    function addMarker() {
+        if (map) {
+            new L.Draw.Marker(map, drawControl.options.draw.marker).enable();
+        }
+    }
+
+    function clearDrawings() {
+        if (drawnItems) {
+            drawnItems.clearLayers();
+            currentPolygon = null;
+            currentMarker = null;
+            document.getElementById('polygonCoordinates').value = '';
+            document.getElementById('centerCoordinates').value = '';
+            document.getElementById('coordinatesList').innerHTML = '<div class="text-muted text-center">Нарисуйте полигон на карте</div>';
+        }
+    }
+
+    function clearMap() {
+        if (map) {
+            map.remove();
+            map = null;
+        }
+    }
+
+    // Показать модальное окно добавления перекрёстка
+    function showAddIntersectionModal() {
+        document.getElementById('intersectionModalTitle').textContent = 'Добавить перекрёсток';
+        document.getElementById('editIntersectionId').value = '';
+        document.getElementById('addIntersectionForm').reset();
+        document.getElementById('polygonCoordinates').value = '';
+        document.getElementById('centerCoordinates').value = '';
+        document.getElementById('coordinatesList').innerHTML = '<div class="text-muted text-center">Нарисуйте полигон на карте</div>';
+        document.getElementById('zoneColor').value = '#4361ee';
+
+        const modal = new bootstrap.Modal(document.getElementById('addIntersectionModal'));
+        modal.show();
+
+        setTimeout(() => {
+            initMapForEdit();
+        }, 500);
+    }
+
+    // Редактирование перекрёстка
+    function editIntersection(id) {
+        const intersection = intersections.find(i => i.id === id);
+        if (!intersection) return;
+
+        document.getElementById('intersectionModalTitle').textContent = 'Редактировать перекрёсток';
+        document.getElementById('editIntersectionId').value = id;
+        document.getElementById('intersectionName').value = intersection.name;
+        document.getElementById('intersectionAddress').value = intersection.address || '';
+        document.getElementById('intersectionDescription').value = intersection.description || '';
+        document.getElementById('zoneColor').value = intersection.color || '#4361ee';
+
+        const modal = new bootstrap.Modal(document.getElementById('addIntersectionModal'));
+        modal.show();
+
+        setTimeout(() => {
+            initMapForEdit(intersection);
+        }, 500);
+    }
+
+    // Сохранение перекрёстка
+    async function saveIntersection() {
+        const id = document.getElementById('editIntersectionId').value;
+        const data = {
+            name: document.getElementById('intersectionName').value,
+            address: document.getElementById('intersectionAddress').value,
+            description: document.getElementById('intersectionDescription').value,
+            polygon: document.getElementById('polygonCoordinates').value,
+            center: document.getElementById('centerCoordinates').value,
+            color: document.getElementById('zoneColor').value
+        };
+
+        if (!data.name) {
+            showWarning('Введите название перекрёстка');
+            return;
+        }
+
+        if (!data.polygon) {
+            showWarning('Нарисуйте полигон на карте');
+            return;
+        }
+
+        showLoading();
+
+        try {
+            const url = id ? `/manager/zones/${id}` : '/manager/zones';
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) throw new Error('Ошибка сохранения');
+
+            showSuccess(id ? 'Перекрёсток обновлён' : 'Перекрёсток создан');
+            bootstrap.Modal.getInstance(document.getElementById('addIntersectionModal')).hide();
+            clearMap();
+            loadIntersections();
+        } catch (error) {
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Удаление перекрёстка
+    async function deleteIntersection(id) {
+        if (!confirm('Удалить перекрёсток? Это действие нельзя отменить.')) return;
+
+        showLoading();
+        try {
+            const response = await fetch(`/manager/zones/${id}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            if (!response.ok) throw new Error('Ошибка удаления');
+
+            showSuccess('Перекрёсток удалён');
+            loadIntersections();
+        } catch (error) {
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Генерация отчёта
+    async function generateReport() {
+        const intersectionId = document.getElementById('reportIntersection').value;
+        const startDate = document.getElementById('reportStartDate').value;
+        const endDate = document.getElementById('reportEndDate').value;
+
+        if (!intersectionId || !startDate || !endDate) {
+            showWarning('Выберите перекрёсток и период');
+            return;
+        }
+
+        showLoading();
+        try {
+            const response = await fetch(
+                `/manager/reports/traffic?intersectionId=${intersectionId}&startDate=${startDate}&endDate=${endDate}`,
+                { credentials: 'include' }
+            );
+
+            if (!response.ok) throw new Error('Ошибка генерации отчёта');
+
+            const report = await response.json();
+            displayReport(report);
+        } catch (error) {
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Отображение отчёта
+    function displayReport(report) {
+        let html = `
+                <div class="card mt-3">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Отчёт по перекрёстку: ${report.intersectionName}</h5>
+                        <small>Период: ${report.period}</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered report-table">
+                                <thead>
+                                    <tr>
+                                        <th rowspan="2">Дата</th>
+                                        <th colspan="2">06:00-09:00</th>
+                                        <th colspan="2">09:00-12:00</th>
+                                        <th colspan="2">12:00-15:00</th>
+                                        <th colspan="2">15:00-18:00</th>
+                                        <th colspan="2">18:00-21:00</th>
+                                    </tr>
+                                    <tr>
+                                        <th>Напр.</th>
+                                        <th>К-во</th>
+                                        <th>Напр.</th>
+                                        <th>К-во</th>
+                                        <th>Напр.</th>
+                                        <th>К-во</th>
+                                        <th>Напр.</th>
+                                        <th>К-во</th>
+                                        <th>Напр.</th>
+                                        <th>К-во</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+
+        if (report.dailyData && report.dailyData.length > 0) {
+            report.dailyData.forEach(day => {
+                html += `
+                        <tr>
+                            <td>${new Date(day.date).toLocaleDateString('ru-RU')}</td>
+                            <td><span class="direction-badge">${day.period1MaxDirection || '-'}</span></td>
+                            <td class="${day.period1MaxCount > 0 ? 'max-value' : ''}">${day.period1MaxCount}</td>
+                            <td><span class="direction-badge">${day.period2MaxDirection || '-'}</span></td>
+                            <td class="${day.period2MaxCount > 0 ? 'max-value' : ''}">${day.period2MaxCount}</td>
+                            <td><span class="direction-badge">${day.period3MaxDirection || '-'}</span></td>
+                            <td class="${day.period3MaxCount > 0 ? 'max-value' : ''}">${day.period3MaxCount}</td>
+                            <td><span class="direction-badge">${day.period4MaxDirection || '-'}</span></td>
+                            <td class="${day.period4MaxCount > 0 ? 'max-value' : ''}">${day.period4MaxCount}</td>
+                            <td><span class="direction-badge">${day.period5MaxDirection || '-'}</span></td>
+                            <td class="${day.period5MaxCount > 0 ? 'max-value' : ''}">${day.period5MaxCount}</td>
+                        </tr>
+                    `;
+            });
+        } else {
+            html += '<tr><td colspan="11" class="text-center">Нет данных за выбранный период</td></tr>';
+        }
+
+        html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        document.getElementById('reportResult').innerHTML = html;
+    }
+
+    // Экспорт в Google Docs
+    async function exportToGoogleDocs() {
+        const intersectionId = document.getElementById('reportIntersection').value;
+        const startDate = document.getElementById('reportStartDate').value;
+        const endDate = document.getElementById('reportEndDate').value;
+
+        if (!intersectionId || !startDate || !endDate) {
+            showWarning('Выберите перекрёсток и период');
+            return;
+        }
+
+        showLoading();
+        try {
+            const response = await fetch('/manager/reports/traffic/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    intersectionId: parseInt(intersectionId),
+                    startDate: startDate,
+                    endDate: endDate
+                })
+            });
+
+            if (!response.ok) throw new Error('Ошибка экспорта');
+
+            const url = await response.text();
+            showSuccess(`Отчёт создан! <a href="${url}" target="_blank">Открыть</a>`);
+            window.open(url, '_blank');
+        } catch (error) {
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Подтверждение пользователя
+    async function approveUser(userId) {
+        if (!confirm('Подтвердить регистрацию пользователя?')) return;
+
+        showLoading();
+        try {
+            const response = await fetch(`/manager/approve/${userId}`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (!response.ok) throw new Error('Ошибка подтверждения');
+
+            showSuccess('Пользователь подтверждён');
+            loadUsers();
+        } catch (error) {
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Сохранение направления
+    async function saveDirection() {
+        const data = {
+            intersectionId: parseInt(document.getElementById('directionIntersection').value),
+            code: document.getElementById('directionCode').value,
+            name: document.getElementById('directionName').value,
+            orderIndex: parseInt(document.getElementById('directionOrder').value)
+        };
+
+        if (!data.intersectionId || !data.code || !data.name) {
+            showWarning('Заполните все поля');
+            return;
+        }
+
+        showInfo('Функция будет доступна после реализации API');
+    }
+
+    // Сохранение дежурства
+    async function saveDuty() {
+        const data = {
+            date: document.getElementById('dutyDate').value,
+            start: document.getElementById('dutyStart').value + ':00',
+            end: document.getElementById('dutyEnd').value + ':00',
+            employeeId: parseInt(document.getElementById('dutyEmployee').value),
+            zoneId: parseInt(document.getElementById('dutyIntersection').value)
+        };
+
+        if (!data.date || !data.employeeId || !data.zoneId) {
+            showWarning('Заполните все поля');
+            return;
+        }
+
+        showLoading();
+        try {
+            const response = await fetch('/manager/duty', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) throw new Error('Ошибка назначения дежурства');
+
+            showSuccess('Дежурство назначено');
+            bootstrap.Modal.getInstance(document.getElementById('addDutyModal')).hide();
+            loadDuties();
+            document.getElementById('addDutyForm').reset();
+        } catch (error) {
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Сохранение данных о трафике
+    async function saveTrafficData() {
+        const data = {
+            intersectionId: parseInt(document.getElementById('trafficIntersection').value),
+            directionId: parseInt(document.getElementById('trafficDirection').value),
+            date: document.getElementById('trafficDate').value,
+            startTime: document.getElementById('trafficTime').value + ':00',
+            waitingCarsCount: parseInt(document.getElementById('trafficCount').value)
+        };
+
+        if (!data.intersectionId || !data.directionId || !data.date || !data.startTime) {
+            showWarning('Заполните все поля');
+            return;
+        }
+
+        showLoading();
+        try {
+            const response = await fetch('/employee/traffic/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) throw new Error('Ошибка записи данных');
+
+            showSuccess('Данные записаны');
+            bootstrap.Modal.getInstance(document.getElementById('addTrafficDataModal')).hide();
+            loadTrafficData();
+            document.getElementById('addTrafficDataForm').reset();
+        } catch (error) {
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Показать модальное окно отправки результата
+    function showSubmitResultModal(dutyId) {
+        document.getElementById('submitDutyId').value = dutyId;
+        new bootstrap.Modal(document.getElementById('submitResultModal')).show();
+    }
+
+    // Отправка результата дежурства
+    async function submitDutyResult() {
+        const dutyId = document.getElementById('submitDutyId').value;
+        const spreadsheetId = document.getElementById('spreadsheetId').value;
+        const range = document.getElementById('sheetRange').value;
+
+        if (!spreadsheetId || !range) {
+            showWarning('Заполните все поля');
+            return;
+        }
+
+        showLoading();
+        try {
+            const response = await fetch(`/employee/submit-result/${dutyId}?spreadsheetId=${spreadsheetId}&range=${encodeURIComponent(range)}`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (!response.ok) throw new Error('Ошибка отправки результата');
+
+            showSuccess('Результат успешно отправлен');
+            bootstrap.Modal.getInstance(document.getElementById('submitResultModal')).hide();
+            loadDuties();
+        } catch (error) {
+            showError('Ошибка: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Загрузка направлений для выбранного перекрёстка
+    async function loadDirectionsForTraffic() {
+        const intersectionId = document.getElementById('trafficIntersection').value;
+        const directionSelect = document.getElementById('trafficDirection');
+
+        if (!intersectionId) {
+            directionSelect.innerHTML = '<option value="">Сначала выберите перекрёсток</option>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/employee/traffic/directions/${intersectionId}`, { credentials: 'include' });
+            if (response.ok) {
+                const directions = await response.json();
+                directionSelect.innerHTML = directions.map(d =>
+                    `<option value="${d.id}">${d.code} - ${d.name}</option>`
+                ).join('');
+            }
+        } catch (error) {
+            console.error('Error loading directions:', error);
+        }
+    }
+
+    // Вспомогательные функции
+    function showAddDirectionModal() {
+        new bootstrap.Modal(document.getElementById('addDirectionModal')).show();
+    }
+
+    function showAddDutyModal() {
+        new bootstrap.Modal(document.getElementById('addDutyModal')).show();
+    }
+
+    function showAddTrafficDataModal() {
+        new bootstrap.Modal(document.getElementById('addTrafficDataModal')).show();
+    }
+
+    function showLoading() {
+        document.getElementById('loading').style.display = 'flex';
+    }
+
+    function hideLoading() {
+        document.getElementById('loading').style.display = 'none';
+    }
+
+    function showSuccess(message) {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-custom';
+        alert.innerHTML = `
+                <i class="bi bi-check-circle-fill me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+        document.body.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    }
+
+    function showError(message) {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-custom';
+        alert.innerHTML = `
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+        document.body.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    }
+
+    function showWarning(message) {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-warning alert-custom';
+        alert.innerHTML = `
+                <i class="bi bi-exclamation-circle-fill me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+        document.body.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    }
+
+    function showInfo(message) {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-info alert-custom';
+        alert.innerHTML = `
+                <i class="bi bi-info-circle-fill me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+        document.body.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    }
+
+    function completeDuty(id) {
+        showInfo('Завершение дежурства будет доступно позже');
+    }
+
+    function viewDutyDetails(id) {
+        showInfo('Просмотр деталей будет доступен позже');
+    }
+
+    function logout() {
+        fetch('/logout', { method: 'POST', credentials: 'include' })
+            .finally(() => {
+                window.location.href = '/login.html';
+            });
+    }
+</script>
+</body>
+</html>

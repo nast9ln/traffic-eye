@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>OAuth2 Success</title>
+    <script>
+        window.onload = function() {
+            // Получаем данные пользователя из атрибутов модели
+            const email = [[${email}]];
+            const name = [[${name}]];
+            const picture = [[${picture}]];
+
+            // Сохраняем в localStorage
+            const user = {
+                email: email,
+                name: name,
+                username: name,
+                picture: picture,
+                role: 'EMPLOYEE' // По умолчанию сотрудник, менеджер определится позже
+            };
+            localStorage.setItem('user', JSON.stringify(user));
+
+            // Перенаправляем на главную
+            window.location.href = '/index.html';
+        };
+    </script>
+</head>
+<body>
+<p>Аутентификация успешна. Перенаправление...</p>
+</body>
+</html>

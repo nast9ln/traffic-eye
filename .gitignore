@@ -1,36 +1,56 @@
-HELP.md
+# Создайте .gitignore файл
+cat > .gitignore << 'EOF'
+# Compiled files
 target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+*.class
+*.jar
+*.war
+*.ear
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
+# IDE files
+.idea/
 *.iml
+*.iws
 *.ipr
+.settings/
+.classpath
+.project
+.springBeans
+.metadata
+bin/
+tmp/
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+# Logs
+logs/
+*.log
 
-### VS Code ###
-.vscode/
+# Database
+data/
 
-src/main/resources/application.properties
-src/main/resources/credentials.json
+# Google OAuth tokens
+tokens/
+*.token
+*.tokens
+**/StoredCredential
+**/tokens/
+
+# Credentials
+credentials.json
+**/credentials.json
+application-local.properties
+application-dev.properties
+application-secret.properties
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Maven
+log/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+dependency-reduced-pom.xml
+buildNumber.properties
+EOF
